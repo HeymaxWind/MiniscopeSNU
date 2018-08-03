@@ -88,7 +88,7 @@ close all
 
 %% select ROI
 
-% in some case, there is fixed signal such as stain on the lens 
+% in some case, there is fixed signal such as blob on the lens 
 % and it interupt alignment. Therefore see the movie 'implay(movingSignal)'
 % than discrete moving and fixed signal, and choose ROI moving signal only 
 
