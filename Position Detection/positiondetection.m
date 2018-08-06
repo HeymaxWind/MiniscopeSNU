@@ -35,24 +35,15 @@ close all
 %% Creation of ROI with white borders
 %background is defined in white in order to avoid background detection on future segmentation
 white_border = (255 .* imcomplement(mask));
-for frame = 1:size(msFrame,3)
-    other0 = (double(msFrame(:,:,frame)) .* mask) + white_border;
-    other0_save(:,:,frame) = uint8(other0);
-end
-
-%% Thresholding to discriminate mouse body from background
-refFrame=msFrame(:,:,1)<45;
-
-parfor frame=1:size(msFrame,3)
-    other1(:,:,frame)=(other0_save(:,:,frame)<45)-refFrame; %thresholding 
-    other2(:,:,frame)=bwareaopen(other1(:,:,frame),600); %erase of blobs under 600 pixels
-end
-
-%% Enhancement of binary object to avoid wire detection/issues
+refFrame=(msFrame(:,:,1)<45.*mask)+white_border;
 se2=strel('disk',15);
-parfor frame=1:size(other1,3)
-    %other3(:,:,frame)=imfill(other1(:,:,frame),'holes');
-    other4(:,:,frame)=imclose(other2(:,:,frame),se2);
+
+for frame = 1:size(msFrame,3)
+    other0 = (double(msFrame(:,:,frame)) .* mask) + white_border;    
+    other1=((other0<45)-refFrame)>0; %thresholding to discriminate mouse body
+    other2=bwareaopen(other1,600); %erase of blobs under 600 pixels
+    other4(:,:,frame)=imclose(other2,se2); %enhancement of binary object to avoid wire detection issues
+    %imshow(other4(:,:,frame));
 end
 
 %% properties about regions detected
@@ -78,8 +69,8 @@ ycenters_filled=filloutliers(ycenters,'linear','movmedian',50,1);
 
 %smoothing of center coordinates, preventing fluctuation
  for k=1:3
-centers(:,1)=smooth(single(xcenters_filled));
-centers(:,2)=smooth(single(ycenters_filled));    
+centers(:,1)=smooth(single(xcenters_filled(:,1)));
+centers(:,2)=smooth(single(ycenters_filled(:,1)));    
  end
 %% display white cross on center detected
 output=msFrame;
