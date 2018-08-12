@@ -15,7 +15,7 @@ rotate_index = rotate_index_Generator(20); % load rotate_index for calc. of alig
 h = fspecial('average', 4); % avg filter setup
 h2 = fspecial('average', 40); % avg filter setup
 
-fileNum = 1;
+fileNum = 2;
 %%
 for fileNum = 1:size(aviFileList,2)
     v = VideoReader(cell2mat(aviFileList(fileNum)))
@@ -61,11 +61,32 @@ for frame = 1:frame_num
 %     imshow(tmp)
 end
 % clear dataFrame
-%% selection ROI
-refFrame = signalFrame(:,:,500);
+%% refFrame setup
 
+refFrame = signalFrame(:,:,500);
+if fileNum == 1 GlobalRefFrame = refFrame; end
+
+for rix = 1:size(rotate_index,1)
+    drow = rotate_index(rix,1);
+    dcol = rotate_index(rix,2);
+
+    try
+        C_match = GlobalRefFrame(ymin:ymax, xmin:xmax) .* refFrame(ymin+drow:ymax+drow, xmin+dcol:xmax+dcol);
+        indicator(1,rix) = sum(sum(C_match,1),2);
+
+    catch
+        indicator(1,rix) = -inf;
+        disp('out of boundary')
+    end
+end
+
+[vx, ix] = max(indicator(1,:));
+g_ix(1, :) = rotate_index(ix, :);
+
+
+%% selection ROI
 if size(ROImatFile,1) >= 1
-    if fileNum == 1; disp('1°³ ÀÌ»óÀÇ ROI Á¤º¸°¡ Á¸ÀçÇÕ´Ï´Ù. "selection ROI" session Àº ½ÇÇàµÇÁö ¾Ê½À´Ï´Ù'); end
+    if fileNum == 1; disp('1ê°œ ì´ìƒì˜ ROI ì •ë³´ê°€ ì¡´ì¬í•©ë‹ˆë‹¤. "selection ROI" session ì€ ì‹¤í–‰ë˜ì§€ ì•ŠìŠµë‹ˆë‹¤'); end
 else
     figure( 'Position', [900 150 800 550] )
     imshow(refFrame);
@@ -107,7 +128,7 @@ for frame = 1:frame_num
     end
 
     [vx, ix] = max(indicator(1,:));
-    aliFixInfo(1, :, frame) = rotate_index(ix, :);
+    aliFixInfo(1, :, frame) = rotate_index(ix, :) + g_ix(1, :);
     
     tmpFrame = double(v.read(frame));
     msFrame = tmpFrame(:,:,1);
@@ -123,7 +144,15 @@ save(savepath, 'aliFixInfo')
 
 end % msCam list 'for loop' end
 
-%% intergrated mat file save pathway setup
+%% intergration
+path = 'E:\MSBak\Miniscope imaging data\Data\201806\GFP201806_20180807_Training\GPF201806_Day1_#3.2\';
+before_address = 'E:\MSBak\Miniscope imaging data\Data\201806\GFP201806_20180807_Training\GPF201806_Day1_#3.2\20180812011825';
+
+%%
+intergrationFileList = msCamVideoFileDetection([before_address '\'], 'msCam', '.avi'); % finding msCam list
+sizeInfoFileList = msCamVideoFileDetection([before_address '\'], 'msCam', '.mat'); % finding msCam list
+
+% intergrated mat file save pathway setup
 Analysis_Method = '201808';
 [project, miceID, day, start_idx] = msbak_project_miceID_extract_from_filepath(path);
 relative_address = path(1:strfind(path, '\Data'));
@@ -133,11 +162,6 @@ if (exist(before_day_address, 'dir') == 0)
     disp(['Made a result directory at :', newline, char(9), before_day_address]);
     mkdir(before_day_address);
 end
-
-%% intergration
-% before_address = [];
-intergrationFileList = msCamVideoFileDetection([before_address '\'], 'msCam', '.avi'); % finding msCam list
-sizeInfoFileList = msCamVideoFileDetection([before_address '\'], 'msCam', '.mat'); % finding msCam list
 
 % calc size cut
 T = 0; B = 0; L = 0; R = 0;
@@ -156,17 +180,24 @@ for aliFileNum = 1:size(sizeInfoFileList,2)
 end
 sizefix_info = [T B L R]; % sizefix_info (2/4)
 
+V_savePath = [before_day_address project '_' miceID '_' day '_Intergrated.avi'];
+V_save = VideoWriter(V_savePath);
+open(V_save)
+
 frame = 0;
 for msCamNum = 1:size(intergrationFileList,2)
     v = VideoReader(cell2mat(intergrationFileList(1,msCamNum)));
-    frame_num = v.NumberOfFrames; % µ¿¿µ»ó ÃÑ frame °¹¼ö
+    frame_num = v.NumberOfFrames; % ë™ì˜ìƒ ì´ frame ê°¯ìˆ˜
     
     for i = 1:frame_num
         frame = frame+1;
         tmpFrame = uint8(v.read(i));
         Y(:,:,frame) = tmpFrame(1+L:end+R,1+T:end+B,1); % Y (1/4)
+        
+        writeVideo(V_save, Y(:,:,frame));
     end
 end
+close(V_save)
 
 Ysiz = size(Y); % Ysiz (3/4)
 savename = [before_day_address project '_' miceID '_' day '_Intergrated.mat']; % savename (4/4)
